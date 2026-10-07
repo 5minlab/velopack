@@ -7,9 +7,17 @@ This folder contains pre-compiled binaries from a variety of sources. These shou
 - License: https://aka.ms/WinSDKLicenseURL
 
 ### zstd.exe v1.5.5
-- Fast compression and diff/patch
+- Reading legacy zstd deltas and the comparison benchmark. New deltas use HDiffPatch.
 - Can be found at https://github.com/facebook/zstd
 - License is GPL-2.0 & BSD 3: https://github.com/facebook/zstd/blob/dev/LICENSE, https://github.com/facebook/zstd/blob/dev/COPYING
+
+### hdiffz.exe v4.12.0
+- Generates HDIFF13 file patches and applies them for the packaging CLI.
+- Upstream: https://github.com/sisong/HDiffPatch/tree/v4.12.0 (MIT).
+- Official Windows x64 release: https://github.com/sisong/HDiffPatch/releases/download/v4.12.0/hdiffpatch_v4.12.0_bin_windows64.zip
+- ZIP SHA-256: `62c2d52b12b48546bf9a10e0027d361132d635cb0a71ec483c49e07f36b795f9`.
+- Executable SHA-256: `203a8a8b981330414e6981fd342b663cb974e1540cd702e21d952aef7e40ae83`.
+- Upstream license is included in `HDiffPatch-LICENSE`. The native updater uses the pinned source subset in `src/bins/native/hdiffpatch`.
 
 ### type2-runtime (continuous Mar 7, 2026)
 - Type 2 AppImage runtime binaries needed to create a .AppImage for Linux

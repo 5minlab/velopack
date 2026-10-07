@@ -112,6 +112,7 @@ serial_test.workspace = true
 
 [build-dependencies]
 semver.workspace = true
+cc = "1.2"
 
 [target.'cfg(windows)'.build-dependencies]
 winres.workspace = true

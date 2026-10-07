@@ -5027,6 +5027,7 @@ version = "0.0.0-local"
 dependencies = [
  "anyhow",
  "bitflags 2.13.2",
+ "cc",
  "chrono",
  "clap",
  "derivative",

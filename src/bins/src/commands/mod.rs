@@ -7,6 +7,9 @@ pub use start::*;
 mod patch;
 pub use patch::*;
 
+mod hdiff;
+pub use hdiff::hdiff_patch_single;
+
 #[cfg(target_os = "linux")]
 mod apply_linux_impl;
 #[cfg(target_os = "macos")]

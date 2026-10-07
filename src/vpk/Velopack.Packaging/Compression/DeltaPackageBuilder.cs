@@ -1,5 +1,6 @@
 ﻿using System.IO.MemoryMappedFiles;
 using System.Text;
+using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
 using Velopack.Core;
 using Velopack.Packaging.Exceptions;
@@ -33,7 +34,7 @@ public class DeltaPackageBuilder
         if (String.IsNullOrEmpty(outputFile) || File.Exists(outputFile))
             throw new ArgumentException("The output file is null or already exists", nameof(outputFile));
 
-        var zstd = new Zstd(HelperFile.GetZstdPath());
+        var hdiff = new HDiffPatch(HelperFile.GetHDiffPatchPath());
 
         if (basePackage.Version >= newPackage.Version) {
             var message = String.Format(
@@ -76,9 +77,9 @@ public class DeltaPackageBuilder
             // to their full name. We'll use this later to determine in
             // the new version of the package whether the file exists or
             // not.
-            var baseLibFiles = baseTempInfo.GetAllFilesRecursively()
+            var baseLibFiles = new ConcurrentDictionary<string, string>(baseTempInfo.GetAllFilesRecursively()
                 .Where(x => x.FullName.ToLowerInvariant().Contains("lib" + Path.DirectorySeparatorChar))
-                .ToDictionary(k => k.FullName.Replace(baseTempInfo.FullName, ""), v => v.FullName);
+                .ToDictionary(k => k.FullName.Replace(baseTempInfo.FullName, ""), v => v.FullName));
             var newLibDir = tempInfo.GetDirectories().First(x => x.Name.ToLowerInvariant() == "lib");
             var newLibFiles = newLibDir.GetAllFilesRecursively().ToArray();
             var numNewFiles = newLibFiles.Length;
@@ -114,7 +115,7 @@ public class DeltaPackageBuilder
                     Interlocked.Increment(ref fSame);
                 } else {
                     // 3. changed, write a delta in new
-                    zstd.CreatePatch(oldFilePath, targetFile.FullName, targetFile.FullName + ".zsdiff", mode);
+                    hdiff.CreatePatch(oldFilePath, targetFile.FullName, targetFile.FullName + ".hdiff", mode);
 
                     using var newfs = File.OpenRead(targetFile.FullName);
 #pragma warning disable CS0618 // Type or member is obsolete
@@ -125,7 +126,7 @@ public class DeltaPackageBuilder
                 }
 
                 targetFile.Delete();
-                baseLibFiles.Remove(relativePath);
+                baseLibFiles.TryRemove(relativePath, out _);
                 var p = Interlocked.Increment(ref fProcessed);
                 progress(CoreUtil.CalculateProgress((int) ((double) p / numNewFiles * 100), 0, 70));
             }
@@ -138,7 +139,7 @@ public class DeltaPackageBuilder
                         try {
                             createDeltaForSingleFile(f, tempInfo);
                         } catch (Exception ex) {
-                            _logger.Error($"Failed to create zstd diff for file '{f.FullName}'. " + Environment.NewLine + ex.Message);
+                            _logger.Error($"Failed to create HDiffPatch diff for file '{f.FullName}'. " + Environment.NewLine + ex.Message);
                             throw;
                         }
                     });

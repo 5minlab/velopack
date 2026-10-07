@@ -63,6 +63,16 @@ public static class HelperFile
 #endif
     }
 
+    public static string GetHDiffPatchPath()
+    {
+        if (VelopackRuntimeInfo.IsWindows)
+            return FindHelperFile("hdiffz.exe");
+        Exe.AssertSystemBinaryExists("hdiffz",
+            "install HDiffPatch v4.12.0 or newer from https://github.com/sisong/HDiffPatch/releases and add hdiffz to PATH",
+            "brew install hdiffpatch");
+        return "hdiffz";
+    }
+
     public static string GetZstdPath()
     {
         if (VelopackRuntimeInfo.IsWindows)

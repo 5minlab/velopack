@@ -22,7 +22,7 @@ public class DeltaPatchCommandRunner : ValidatedCommand<DeltaPatchOptions, Delta
         var tmp = TempUtil.GetDefaultTempBaseDirectory();
         using var _1 = TempUtil.GetTempDirectory(out var workDir);
 
-        var delta = new DeltaEmbedded(HelperFile.GetZstdPath(), _logger, tmp);
+        var delta = new DeltaEmbedded(HelperFile.GetHDiffPatchPath(), _logger, tmp);
         var veloLogger = _logger.ToVelopackLogger();
         EasyZip.ExtractZipToDirectory(veloLogger, options.BasePackage, workDir);
 

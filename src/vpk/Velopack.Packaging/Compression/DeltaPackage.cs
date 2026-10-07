@@ -11,7 +11,7 @@ namespace Velopack.Packaging.Compression
         protected readonly IVelopackLogger Log;
         protected readonly string BaseTempDir;
 
-        private static Regex DIFF_SUFFIX = new Regex(@"\.(bs|zs)?diff$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static Regex DIFF_SUFFIX = new Regex(@"\.(bs|zs|h)?diff$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         public DeltaPackage(IVelopackLogger logger, string baseTmpDir)
         {
@@ -116,6 +116,7 @@ namespace Velopack.Packaging.Compression
         }
 
         protected abstract void ApplyZstdPatch(string baseFile, string patchFile, string outputFile);
+        protected abstract void ApplyHDiffPatch(string baseFile, string patchFile, string outputFile);
 
         void applyDiffToFile(string deltaPath, string relativeFilePath, string workingDirectory)
         {
@@ -125,17 +126,32 @@ namespace Velopack.Packaging.Compression
             using var _d = TempUtil.GetTempFileName(out var tempTargetFile, BaseTempDir);
 
             // NB: Zero-length diffs indicate the file hasn't actually changed
-            if (new FileInfo(inputFile).Length == 0) {
+            if (new FileInfo(inputFile).Length == 0 && relativeFilePath.EndsWith(".diff", StringComparison.OrdinalIgnoreCase)) {
+                if (!File.Exists(finalTarget)) throw new FileNotFoundException("Unchanged file is missing", finalTarget);
                 Log.Trace($"{relativeFilePath} exists unchanged, skipping");
                 return;
             }
 
-            if (!relativeFilePath.EndsWith(".zsdiff", StringComparison.InvariantCultureIgnoreCase)) {
+            if (relativeFilePath.EndsWith(".hdiff", StringComparison.OrdinalIgnoreCase)) {
+                Log.Trace($"Applying HDiffPatch diff to {relativeFilePath}");
+                ApplyHDiffPatch(finalTarget, inputFile, tempTargetFile);
+                // HDIFF13 has no content checksum. Verify the existing package sidecar
+                // before replacing the old file, including when the patch applied cleanly.
+#pragma warning disable CS0618
+                var expected = ReleaseEntry.ParseReleaseEntry(File.ReadAllText(Path.ChangeExtension(inputFile, ".shasum")))
+                    ?? throw new InvalidDataException($"Missing checksum for {relativeFilePath}");
+                using (var stream = File.OpenRead(tempTargetFile)) {
+                    var actual = ReleaseEntry.GenerateFromFile(stream, "patched");
+                    if (actual.Filesize != expected.Filesize || !actual.SHA1.Equals(expected.SHA1, StringComparison.OrdinalIgnoreCase))
+                        throw new InvalidDataException($"Checksum mismatch for {relativeFilePath}");
+                }
+#pragma warning restore CS0618
+            } else if (relativeFilePath.EndsWith(".zsdiff", StringComparison.OrdinalIgnoreCase)) {
+                Log.Trace($"Applying legacy zstd diff to {relativeFilePath}");
+                ApplyZstdPatch(finalTarget, inputFile, tempTargetFile);
+            } else {
                 throw new NotSupportedException($"Unsupported patch format: {relativeFilePath}");
             }
-
-            Log.Trace($"Applying zstd diff to {relativeFilePath}");
-            ApplyZstdPatch(finalTarget, inputFile, tempTargetFile);
 
             if (File.Exists(finalTarget)) File.Delete(finalTarget);
 

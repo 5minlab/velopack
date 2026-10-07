@@ -3,6 +3,15 @@
 use std::env;
 
 fn main() {
+    println!("cargo:rerun-if-changed=native");
+    println!("cargo:rerun-if-changed=app.manifest");
+    cc::Build::new()
+        .file("native/hdiffpatch/patch.c")
+        .file("native/hdiffpatch_bridge.c")
+        .define("_IS_USED_MULTITHREAD", "0")
+        .warnings(false)
+        .compile("velopack_hpatch");
+
     #[cfg(target_os = "windows")]
     delay_load();
 

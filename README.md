@@ -3,6 +3,8 @@
   <img alt="Velopack Logo" src="artwork/velopack-black.svg" width="400">
 </picture>
 
+This is a fork of project [Velopack](https://github.com/velopack/velopack), with replaces zstd to [hdiffpatch](https://github.com/sisong/hdiffpatch)
+
 ---
 
 [![Nuget](https://img.shields.io/nuget/v/Velopack?style=flat-square&logo=nuget&logoColor=white)](https://www.nuget.org/packages/Velopack/)

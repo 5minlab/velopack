@@ -93,7 +93,7 @@ pub fn delta<P1: AsRef<Path>, P2: AsRef<Path>, P3: AsRef<Path>>(
         let delta_relative_paths = fastzip::enumerate_files_relative(&delta_dir);
         let mut visited_paths = HashSet::new();
 
-        // apply all the zsdiff patches for files which exist in both the delta and the base package
+        // Apply current HDiffPatch and legacy zstd patches.
         for relative_path in &delta_relative_paths {
             if relative_path.starts_with("lib") {
                 let file_name = relative_path.file_name().ok_or(anyhow!("Failed to get file name"))?;
@@ -102,21 +102,31 @@ pub fn delta<P1: AsRef<Path>, P2: AsRef<Path>, P3: AsRef<Path>>(
                 // and .bsdiff patches are legacy formats that vpk can no longer produce; they are still
                 // matched here so a legacy delta fails loudly below instead of the patch file being
                 // copied into the output package as if it were a new file.
-                if file_name_str.ends_with(".zsdiff") || file_name_str.ends_with(".diff") || file_name_str.ends_with(".bsdiff") {
+                if file_name_str.ends_with(".hdiff")
+                    || file_name_str.ends_with(".zsdiff")
+                    || file_name_str.ends_with(".diff")
+                    || file_name_str.ends_with(".bsdiff")
+                {
                     let file_without_extension = relative_path.with_extension("");
-                    // let shasum_path = delta_dir.join(relative_path).with_extension("shasum");
                     let old_file_path = work_dir.join(&file_without_extension);
                     let patch_file_path = delta_dir.join(relative_path);
                     let output_file_path = delta_dir.join(&file_without_extension);
 
                     visited_paths.insert(file_without_extension);
 
-                    if fs::metadata(&patch_file_path)?.len() == 0 {
+                    if fs::metadata(&patch_file_path)?.len() == 0 && file_name_str.ends_with(".diff") {
+                        if !old_file_path.is_file() {
+                            bail!("Unchanged file is missing: {:?}", old_file_path);
+                        }
                         // file has not changed, so we can continue.
                         continue;
                     }
 
-                    if file_name_str.ends_with(".zsdiff") {
+                    if file_name_str.ends_with(".hdiff") {
+                        info!("{}: applying HDiffPatch patch: {:?}", i, relative_path);
+                        let (size, hash) = super::hdiff::read_shasum(&patch_file_path.with_extension("shasum"))?;
+                        super::hdiff_patch_single(&old_file_path, &patch_file_path, &output_file_path, size, &hash)?;
+                    } else if file_name_str.ends_with(".zsdiff") {
                         info!("{}: applying zsdiff patch: {:?}", i, relative_path);
                         zstd_patch_single(&old_file_path, &patch_file_path, &output_file_path)?;
                     } else {
@@ -164,25 +174,63 @@ pub fn delta<P1: AsRef<Path>, P2: AsRef<Path>, P3: AsRef<Path>>(
     Ok(())
 }
 
-// NOTE: this is some code to do checksum verification, but it is not being used
-// by the current implementation because zstd patching already has checksum verification
-//
-// let actual_checksum = get_sha1(&output_file_path);
-// let expected_checksum = load_release_entry_shasum(&shasum_path)?;
-//
-// if !actual_checksum.eq_ignore_ascii_case(&expected_checksum) {
-//     bail!("Checksum mismatch for: {:?}. Expected: {}, Actual: {}", relative_path, expected_checksum, actual_checksum);
-// }
-// fn load_release_entry_shasum(file: &PathBuf) -> Result<String> {
-//     let raw_text = fs::read_to_string(file)?.trim().to_string();
-//     let first_word = raw_text.splitn(2, ' ').next().unwrap();
-//     let cleaned = first_word.trim().trim_matches(|c: char| !c.is_ascii_hexdigit());
-//     Ok(cleaned.to_string())
-// }
-//
-// fn get_sha1(file: &PathBuf) -> String {
-//     let file_bytes = fs::read(file).unwrap();
-//     let mut sha1 = sha1_smol::Sha1::new();
-//     sha1.update(&file_bytes);
-//     sha1.digest().to_string()
-// }
+#[cfg(test)]
+mod hdiff_package_tests {
+    use super::*;
+
+    const OLD: &[u8] = include_bytes!("../../../../test/fixtures/hdiffpatch/old.bin");
+    const NEW: &[u8] = include_bytes!("../../../../test/fixtures/hdiffpatch/new.bin");
+
+    fn put(root: &Path, relative: &str, bytes: &[u8]) {
+        let path = root.join(relative);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(path, bytes).unwrap();
+    }
+
+    #[test]
+    fn applies_hdiff_packages_with_added_removed_and_unchanged_files() {
+        let temp = tempfile::tempdir().unwrap();
+        let base = temp.path().join("base");
+        let delta_dir = temp.path().join("delta");
+        put(&base, "lib/app/changed", OLD);
+        put(&base, "lib/app/same", b"unchanged");
+        put(&base, "lib/app/deleted", b"deleted");
+        put(&base, "test.nuspec", b"version 1");
+        put(&delta_dir, "lib/app/changed.hdiff", include_bytes!("../../../../test/fixtures/hdiffpatch/speed.hdiff"));
+        let hash = sha1_smol::Sha1::from(NEW).digest().to_string();
+        put(&delta_dir, "lib/app/changed.shasum", format!("\u{feff}{hash} changed.shasum {}", NEW.len()).as_bytes());
+        put(&delta_dir, "lib/app/same.diff", b"");
+        put(&delta_dir, "lib/app/same.shasum", b"");
+        put(&delta_dir, "lib/app/added", b"added");
+        put(&delta_dir, "test.nuspec", b"version 2");
+        let base_zip = temp.path().join("base.zip");
+        let delta_zip = temp.path().join("delta.zip");
+        fastzip::compress_directory(&base, &base_zip).unwrap();
+        fastzip::compress_directory(&delta_dir, &delta_zip).unwrap();
+        let output = temp.path().join("result.zip");
+        delta(&base_zip, vec![&delta_zip], temp.path().join("work"), &output).unwrap();
+        let restored = temp.path().join("restored");
+        fastzip::extract_to_directory(output, &restored, None).unwrap();
+        assert_eq!(fs::read(restored.join("lib/app/changed")).unwrap(), NEW);
+        assert_eq!(fs::read(restored.join("lib/app/same")).unwrap(), b"unchanged");
+        assert_eq!(fs::read(restored.join("lib/app/added")).unwrap(), b"added");
+        assert_eq!(fs::read(restored.join("test.nuspec")).unwrap(), b"version 2");
+        assert_eq!(fastzip::enumerate_files_relative(restored).len(), 4);
+    }
+
+    #[test]
+    fn rejects_empty_hdiff_and_missing_checksum() {
+        for patch in [b"".as_slice(), include_bytes!("../../../../test/fixtures/hdiffpatch/speed.hdiff").as_slice()] {
+            let temp = tempfile::tempdir().unwrap();
+            let base = temp.path().join("base");
+            let delta_dir = temp.path().join("delta");
+            put(&base, "lib/app/changed", OLD);
+            put(&delta_dir, "lib/app/changed.hdiff", patch);
+            let base_zip = temp.path().join("base.zip");
+            let delta_zip = temp.path().join("delta.zip");
+            fastzip::compress_directory(&base, &base_zip).unwrap();
+            fastzip::compress_directory(&delta_dir, &delta_zip).unwrap();
+            assert!(delta(&base_zip, vec![&delta_zip], temp.path().join("work"), temp.path().join("result.zip")).is_err());
+        }
+    }
+}

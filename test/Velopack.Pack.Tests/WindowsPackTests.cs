@@ -233,13 +233,13 @@ public class WindowsPackTests
         await PackTestApp(id, "2.0.0", "version 2 test", releaseDir, logger, true);
         await PackTestApp(id, "3.0.0", "version 3 test", releaseDir, logger);
 
-        // did a zsdiff get created for the changed file in our v2 update? (test_string.txt is the
+        // did an hdiff get created for the changed file in our v2 update? (test_string.txt is the
         // only file that differs between versions now that the test string is not compiled in)
         var deltaPath = Path.Combine(releaseDir, $"{id}-2.0.0-delta.nupkg");
         Assert.True(File.Exists(deltaPath));
         using var _2 = TempUtil.GetTempDirectory(out var extractDir);
         EasyZip.ExtractZipToDirectory(logger.ToVelopackLogger(), deltaPath, extractDir);
-        var extractStringDiff = Path.Combine(extractDir, "lib", "app", "test_string.txt.zsdiff");
+        var extractStringDiff = Path.Combine(extractDir, "lib", "app", "test_string.txt.hdiff");
         var extractStringShasum = Path.Combine(extractDir, "lib", "app", "test_string.txt.shasum");
         Assert.True(File.Exists(extractStringDiff));
         Assert.True(new FileInfo(extractStringDiff).Length > 0);
