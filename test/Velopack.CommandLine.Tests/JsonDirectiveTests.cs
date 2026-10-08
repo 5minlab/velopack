@@ -218,7 +218,7 @@ public class JsonDirectiveTests : TempFileTestBase
               """);
 
         var options = MapEmptyCommand();
-        Assert.Equal(DeltaMode.BestSpeed, options.DeltaMode); // cli default before overlay
+        Assert.Equal(DeltaMode.BestSize, options.DeltaMode); // cli default before overlay
 
         JsonConfigLoader.Populate(jsonFile.FullName, options);
 

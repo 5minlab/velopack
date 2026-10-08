@@ -8,7 +8,7 @@ public class WindowsReleasifyOptions : WindowsSigningOptions
 
     public RID TargetRuntime { get; set; }
 
-    public DeltaMode DeltaMode { get; set; } = DeltaMode.BestSpeed;
+    public DeltaMode DeltaMode { get; set; } = DeltaMode.BestSize;
 
     public string Runtimes { get; set; }
 

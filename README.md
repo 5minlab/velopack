@@ -5,6 +5,17 @@
 
 This is a fork of project [Velopack](https://github.com/velopack/velopack), with replaces zstd to [hdiffpatch](https://github.com/sisong/hdiffpatch)
 
+Simple unreliable benchmark result:
+
+| Algorithm | Mode | Delta bytes | Delta MiB | Generate seconds | Apply seconds |
+| --- | --- | ---: | ---: | ---: | ---: |
+| zstd 1.5.5 | BestSpeed | 9,747,546 | 9.30 | 24.64 | 3.57 |
+| HDiffPatch 4.12.0 | BestSpeed | 8,802,483 | 8.39 | 22.86 | 2.86 |
+| zstd 1.5.5 | BestSize | 4,713,645 | 4.50 | 49.09 | 3.29 |
+| HDiffPatch 4.12.0 | BestSize | 4,533,047 | 4.32 | 24.25 | 2.98 |
+
+BestSize is new default mode
+
 ---
 
 [![Nuget](https://img.shields.io/nuget/v/Velopack?style=flat-square&logo=nuget&logoColor=white)](https://www.nuget.org/packages/Velopack/)

@@ -25,7 +25,7 @@ public class LinuxPackOptions : IPackOptions
 
     public string ReleaseNotes { get; set; }
 
-    public DeltaMode DeltaMode { get; set; } = DeltaMode.BestSpeed;
+    public DeltaMode DeltaMode { get; set; } = DeltaMode.BestSize;
 
     public string Channel { get; set; }
 

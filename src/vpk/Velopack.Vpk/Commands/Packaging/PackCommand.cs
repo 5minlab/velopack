@@ -87,7 +87,7 @@ public abstract class PackCommand : PlatformCommand
             .SetArgumentHelpName("PATH");
 
         DeltaModeOption = AddOption<DeltaMode>((v) => DeltaMode = v, ["--delta"])
-            .SetDefault(DeltaMode.BestSpeed)
+            .SetDefault(DeltaMode.BestSize)
             .SetDescription("Disable or set the delta generation mode.")
             .SetArgumentHelpName("MODE");
 

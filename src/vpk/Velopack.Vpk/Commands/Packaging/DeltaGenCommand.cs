@@ -19,7 +19,7 @@ public class DeltaGenCommand : BaseCommand
 
     {
         AddOption<DeltaMode>((v) => DeltaMode = v, ["--mode"])
-            .SetDefault(DeltaMode.BestSpeed)
+            .SetDefault(DeltaMode.BestSize)
             .SetDescription("Set the delta generation mode.")
             .SetArgumentHelpName("MODE");
 

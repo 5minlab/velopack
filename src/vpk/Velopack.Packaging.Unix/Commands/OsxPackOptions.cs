@@ -9,7 +9,7 @@ public class OsxPackOptions : OsxBundleOptions, IPackOptions
 
     public string ReleaseNotes { get; set; }
 
-    public DeltaMode DeltaMode { get; set; } = DeltaMode.BestSpeed;
+    public DeltaMode DeltaMode { get; set; } = DeltaMode.BestSize;
 
     public bool NoInst { get; set; }
 

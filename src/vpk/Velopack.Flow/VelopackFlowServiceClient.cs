@@ -207,7 +207,7 @@ public class VelopackFlowServiceClient(
                                 var delta = new DeltaPackageBuilder(Logger);
                                 var pOld = new ReleasePackage(prevVersion);
                                 var pNew = new ReleasePackage(fullAssetPath);
-                                delta.CreateDeltaPackage(pOld, pNew, deltaPath, DeltaMode.BestSpeed, report);
+                                delta.CreateDeltaPackage(pOld, pNew, deltaPath, DeltaMode.BestSize, report);
                                 report(100);
                                 return Task.CompletedTask;
                             });
